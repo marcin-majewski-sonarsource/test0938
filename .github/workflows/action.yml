@@ -1,0 +1,39 @@
+name: Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      jobs_json:
+        required: true
+        type: string
+
+jobs:
+  generate-jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Parse JSON and set matrix
+        id: set-matrix
+        run: |
+          echo "${{ inputs.jobs_json }}" > jobs.json
+          jobs=$(jq -c '.[]' jobs.json)
+          matrix="{\"include\":["
+          for job in $jobs; do
+            id=$(echo $job | jq -r '.id[0]')
+            command=$(echo $job | jq -r '.command')
+            depends_on=$(echo $job | jq -r '.depends_on | join(",")')
+            matrix="${matrix}{\"id\":\"${id}\",\"command\":\"${command}\",\"depends_on\":\"${depends_on}\"},"
+          done
+          matrix="${matrix%,}]}"
+          echo "matrix=${matrix}" >> $GITHUB_OUTPUT
+        shell: bash
+
+  dynamic-jobs:
+    needs: ${{ matrix.depends_on }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.generate-jobs.outputs.matrix) }}
+    steps:
+      - name: Run command
+        run: ${{ matrix.command }}

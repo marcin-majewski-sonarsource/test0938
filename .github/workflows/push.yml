@@ -1,0 +1,16 @@
+name: Call Reusable Workflow
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  call-reusable:
+    uses: ./.github/workflows/action.yml
+    with:
+      jobs_json: |
+        [
+          {"id": [123], "command": "test", "depends_on": []},
+          {"id": [234], "command": "test2", "depends_on": [123]}
+        ]
